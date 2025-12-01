@@ -1,0 +1,67 @@
+name: Build and Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          # cache: npm # Disabled to ensure stability if lockfile is missing
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        with:
+          # Automatically inject basePath in your Next.js config file and disable
+          # server side image optimization. You may need 'output: export' in next.config.js.
+          static_site_generator: next
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Tests
+        run: npm run test --if-present
+
+      - name: Build
+        run: npm run build
+        env:
+          # Critical: Map secrets to build time env vars so the frontend can access them
+          NEXT_PUBLIC_GREETING: ${{ secrets.NEXT_PUBLIC_GREETING }}
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
